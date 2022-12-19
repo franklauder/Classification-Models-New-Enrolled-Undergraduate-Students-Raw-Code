@@ -9,22 +9,518 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+
+
+
+
+library(rmarkdown)
+
+library(reticulate)
+
+library(knitr)
+
+
+
+library(dplyr)
+
+library(ggplot2)
+
+library(tidyr)
+
+library(pander)
+
+library(kableExtra)
+
+library(forcats)
+
+library(skimr)
+
+library(gt)
+
+library(GGally)
+
+library(gmodels)
+
+library(plotly)
+
+library(scales)
+
+
+library(ggforce)
+
+library(ggdist)
+
+library(lubridate)
+
+library(DT)
+
+library(visdat)
+
+
+
+library(packcircles)
+
+library(viridis)
+
+library(ggthemes)
+
+library(purrr)
+
+library(ggtext)
+
+library(RColorBrewer)
+
+library(ggpubr)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{python}
+
+
+
+
+import pandas as pd
+
+import numpy as np
+
+import datetime
+
+
+from dateutil.relativedelta import relativedelta
+
+from datetime import date
+```
+
+
+
+
+# Introduction
+
+<br/><br/>
+
+<br/><br/>
+
+This analysis will review different classification models on their
+ability to predict new student persistence, i.e. do first time
+undergraduate students entering for the fall term continue enrollment in
+the spring term of the same academic year. Only students enrolled in
+Bachelor degrees will be used for this analysis.
+
+This report is designed so sections of interest can be accessed directly
+from the index on the left. Code for this project is included for
+interest sake but its understanding is not required for interpretation
+of the visualizations and tables produced. The purpose of this project
+is for any individual to understand the results of the models without
+delving into how the models are built and fit.
+
+R version 4.1.3 and Python version 3.8.12 are used for this for this
+project.
+
+
+```{r}
+
+ug_v1<-readRDS("ug_v1")
+
+
+
+```
+
+
+# Initial Data Analysis
+
+<br/><br/>
+
+This section will check the structure and completeness of the data. In
+other words we will check how many columns and rows the data set has and
+if there are any missing values. Columns are the features (variables)
+and rows are the observations.
+
+<br/><br/>
+
+
+```{r}
+
+
+dim(ug_v1)v
+
+
+```
+
+
+
+
+<br/><br/>
+
+From the above output we find that the data set has 23 columns and 2,667
+rows.
+
+<br/><br/>
+
+<br/><br/>
+
+
+```{r}
+
+
+class_str<-vis_dat(ug_v1)
+
+```
+
+
+
+<br/><br/>
+
+*Figure 1* visually presents the breakdown of variable types indicated
+by color.
+
+From this plot it is determined that there are 15 variables of type
+*character,* 6 variables of type numeric and 2 variables of type date
+(POSIXct). The color gray provides an overview of the depth of missing
+(NULL) values for each variable.
+
+<br/><br/>
+
+
+```{r}
+
+
+
+  
+  
+  mis_val<-vis_miss(ug_v1, cluster=TRUE,sort_miss = TRUE)
+
+
+```
+
+
+<br/><br/>
+
+*Figure 2* provides an in depth analysis of missing (NULL) values for
+the data set as a whole and for each individual variable. First, the
+plot gives the total percentage of missing values in the entire data set
+(3.7%). The plot presents more detail of missing values by providing
+information on a per variable basis. The extent of missing values within
+a specific variable is visually represented by black shaded areas.
+Located at the top of the plot, beside each variable name, is the
+percentage of missing values for that variable. *English Your Primary
+Language* and Stage_dte features have by far the largest percentage
+missing data at 31.9% and 26.43% respectively.
+
+<br/><br/>
+
+# Cleaning and Preparation
+
+<br/><br/>
+
+Cleaning and preparation involves removing duplicate rows/columns,
+filling missing entries with statistical methods , dropping or combining
+categories, renaming variables or categories, removing null entries, and
+creating new variables.
+
+<br/><br/>
+
+## Categorical Features
+
+<br/><br/>
+
+From Figure 1 we know that there are 15 categorical variables in the
+new_ug data set that are of type *`character`*. Categorical variables
+must be of type *factor* for use in classification models, thus these
+variables will be transformed to type *`factor`*.
+
+<br/><br/>
+
+<!--# mutate_if function from dplyr package will be useed to transform character variables to type factor -->
+
+<br/><br/>
+
+
+
+```{r}
+
+
+ug_v2<-ug_v1 %>% 
+   mutate_if(is.character, factor)
+
+
+
+```
+
+
+
+
+```{r}
+
+
+class_str_2<-vis_dat(ug_v2)
+
+
+```
+
+
+Figure 2a shows all *categorical* variables colored in orange are now
+type *factor*.
+
+<br/><br/>
+
+```{r}
+
+
+v2_sum_1<-ug_v2 %>% 
+  select_if(is.factor) %>% 
+  summary()
+
+```
+
+
+
+
+```{r}
+
+pander(v2_sum_1, "Table 1: new_ug_v2 Summary Factor Variables")
+
+
+
+```
+
+
+<br/><br/>
+
+From *Table 1* it can be viewed that certain categorical variables have
+categories that exhibit value inconsistency (representations of the same
+category). These value inconsistencies are due to differences in
+capitalization or different abbreviations. These categories will be
+re-coded so as to eliminate value inconsistencies.
+
+<br/><br/>
+
+Categories for the *filed_fafsa* and *enrolled_spring* variables will be
+re-coded so all are upper case.
+
+
+```{r}
+
+
+ug_v3<- ug_v2 %>%
+  mutate(filed_fafsa=recode(filed_fafsa, 'y' ="Y" )) %>% 
+  mutate(enrolled_spring=recode(enrolled_spring, 'y' ="Y" )) %>% 
+  mutate(english_your_primary_language=recode(english_your_primary_language, 'y' ="Y", "u"="unk", "Unk"="unk" )) 
+
+
+
+```
+
+
+
+
+```{r}
+
+
+incon_var<-ug_v3 %>% 
+  select(filed_fafsa, english_your_primary_language, 
+         enrolled_spring) %>% 
+  summary()
+
+
+```
+
+
+
+```{r}
+
+pander(incon_var, "Table 2:  Summary Recoded Variables ")
+
+
+```
+
+<br/><br/>
+
+Certain variables have unnecessary categories and thus need to be
+reduced. This will be handled by collapsing smaller categories into
+general and bigger categories.
+
+The *value_description* variable has a number of categories with low
+counts and as such these categories will be collapsed into others. All
+low count categories will be collapsed into a a general category
+"*other",* except for"*Hispanic/Latino"* , which will be collapsed into
+"*Hispanic"*. Also, the name *value_description will be renamed to
+race.*
+
+<br/><br/>
+
+
+```{r}
+
+
+ ug_v3<-ug_v3 %>% 
+  mutate(value_description=recode(value_description,"Race and Ethnicity unknown"="unkown" , "Two or more races"="other", 
+     "American Indian or Alaska Native" ="other",
+     "Native Hawaiian or Other Pacific Islander" = "other","Nonresident Alien"="other", "Hispanic/Latino"="Hispanics of any race"))
+
+
+```
+
+
+```{r}
+
+
+ug_v3<-ug_v3 %>% 
+  rename("race"="value_description")
+
+
+```
+
+
+
+```{r}
+
+
+ug_v3<-ug_v3 %>% 
+  mutate(race=recode(race,"Hispanics of any race"="Hispanic" , "Black or African American"="African American"))
+
+```
+
+
+
+```{r}
+
+val_des_cnt_2<-ug_v3 %>%
+  count(race,sort=TRUE, name="Total Count") 
+
+```
+
+
+
+```{r}
+
+
+pander(val_des_cnt_2, caption= "Table 3: Race  Variable Count-Recoded")
+
+
+```
+
+
+```{r}
+
+
+deg_cde_cnt<-ug_v3 %>%
+  count(degr_cde,sort=TRUE, name="Total Count") 
+
+
+
+
+```
+
+
+
+
+```{r}
+
+pander(deg_cde_cnt, caption= "Table 4: Degree Code Variable Count")
+
+
+```
+
+
+
+
+As seen from *Table 4* above, the *degree code* feature has a number of
+categories that will be eliminated due to not being a bachelor degree.
+As such, the *degree code* categories *CAGS, CT, AS*, and *PRECT* will
+be omitted from the data set.
+
+
+```{r}
+
+
+ug_v3<-ug_v3 %>%  
+  filter(degr_cde %in% c("BS", "BA", "BSMG", "BAMS", "BSHS", "BAPSY"))
+
+
+```
+
+
+
+Now that un-needed categories have been eliminated from ***degree
+code***, the remaining categories will be collapsed into either *BS* or
+*BA* to simplify analysis and visualization.
+
+<br/><br/>
+
+
+```{r}
+
+ug_v3<- ug_v3 %>%
+   mutate(degr_cde=recode(degr_cde, 'BSMG' ="BS", "BAMS"="BA", "BSHS"="BS","BAPSY"="BA"))
+
+```
+
+
+
+
+
+```{r}
+
+
+degr_cde_cnt_2<-ug_v3 %>%
+  count(degr_cde,sort=TRUE, name="Total Count") 
+
+
+```
+
+
+
+```{r}
+
+
+
+ug_v3$degr_cde<-droplevels(ug_v3$degr_cde)
+ug_v3$race<-droplevels(ug_v3$race)
+```
+
+
+```{r}
+
+
+
+pander(degr_cde_cnt_2, caption= "Table 5: Degree Code Variable (Combined) count")
+
+
+```
+
+
+```{r}
+
+
+prog_desc_cnt<-ug_v3 %>%
+  count(prog_desc,sort=TRUE, name="Total Count") 
+  
+  
+
+```
+
+
+```{r}
+
+
+
+ pander(prog_desc_cnt,caption= "Table 6: Program Description Count")
+ 
+ 
+```
+
+
+
+<br/><br/>
+
+Categories in the *Program Description* feature will be shortened for
+presentation purposes.
+
+<br/><br/>
