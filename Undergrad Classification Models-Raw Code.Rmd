@@ -524,3 +524,78 @@ Categories in the *Program Description* feature will be shortened for
 presentation purposes.
 
 <br/><br/>
+
+```{r}
+
+
+ug_v3<- ug_v3 %>%
+   mutate(prog_desc=recode(prog_desc, 'Multidisciplinary Studies' ="Multidisc Studies", "Early Childhood Education and Care"="Early Childhood Educ/Care",
+           "Health Care Management"="Health Care Mgmt",
+         "Bachelor of Science in Business Administration"="Business Admin",
+         "Wellness and Health Promotion"="Wellness & Health Promotion",
+         "Bachelor of Science in Healthcare Administration" = "Healthcare Admin", "Bachelor of Science in Accounting"="Accounting","Human Services Management"="Human Services Mgmt","Natural and Applied Sciences"="Natural & Applied Sciences",
+         "Bachelor of Science in Quality Syst & Imprv Mgmt"="Quality Syst & Imprv Mgmt","Bachelor of Science in Quality Systems Management"="Quality Systems Mgmt","BA in Multidisciplinary Studies (CCG)"="Multidisc Studies", 
+         "Bachelor of Science in Digital Marketing"="Digital Marketing",
+         "Information Technology Management"="Information Technology Mgmt",
+         "Management Studies"="Mgmt Studies"))
+
+
+```
+
+
+
+```{r}
+
+
+prog_desc_cnt_2<-ug_v3 %>%
+  count(prog_desc,sort=TRUE, name="Total Count")
+```
+
+
+
+```{r}
+
+
+pander(prog_desc_cnt_2, "Table 7: Program Description Count (Category Names Shortened")
+```
+
+
+## Numeric Variables
+
+```{r}
+
+
+num_sum<-ug_v3 %>% 
+  select_if(is.numeric) %>% 
+  summary()
+```
+
+
+```{r}
+
+pander(num_sum,caption= "Table 8 Numeric Variables Summary")
+
+
+```
+
+
+
+<br/><br/>
+
+*Table 8* shows the feature *hrs_enrolled* has a minimum of zero which
+indicates a student did not enroll for the fall term. Since the analysis
+is based on students who have enrolled at the college the *hrs_enrolled*
+feature will be filtered to determine how many observations have zero
+for *hrs_enrolled*.
+
+<br/><br/>
+
+
+
+```{r}
+
+ug_v3 %>% select(hrs_enrolled) %>% summary()
+
+
+```
+
