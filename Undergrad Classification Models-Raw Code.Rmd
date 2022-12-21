@@ -10,8 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```
-
+Import R Libraries
 
 
 ```{r}
@@ -81,6 +80,8 @@ library(ggpubr)
 
 
 
+Import Python Libraries
+
 ```{python}
 
 
@@ -145,6 +146,9 @@ and rows are the observations.
 <br/><br/>
 
 
+
+
+
 ```{r}
 
 
@@ -152,6 +156,8 @@ dim(ug_v1)v
 
 
 ```
+
+
 
 
 
@@ -166,12 +172,22 @@ rows.
 <br/><br/>
 
 
+
+
+
+
+
+
 ```{r}
 
 
 class_str<-vis_dat(ug_v1)
 
 ```
+
+
+
+
 
 
 
@@ -188,6 +204,11 @@ From this plot it is determined that there are 15 variables of type
 <br/><br/>
 
 
+
+
+
+
+
 ```{r}
 
 
@@ -198,6 +219,11 @@ From this plot it is determined that there are 15 variables of type
 
 
 ```
+
+
+
+
+
 
 
 <br/><br/>
@@ -256,6 +282,10 @@ ug_v2<-ug_v1 %>%
 
 
 
+
+
+
+
 ```{r}
 
 
@@ -270,6 +300,12 @@ type *factor*.
 
 <br/><br/>
 
+
+
+
+
+
+
 ```{r}
 
 
@@ -282,6 +318,11 @@ v2_sum_1<-ug_v2 %>%
 
 
 
+
+
+
+
+
 ```{r}
 
 pander(v2_sum_1, "Table 1: new_ug_v2 Summary Factor Variables")
@@ -289,6 +330,11 @@ pander(v2_sum_1, "Table 1: new_ug_v2 Summary Factor Variables")
 
 
 ```
+
+
+
+
+
 
 
 <br/><br/>
@@ -303,6 +349,13 @@ re-coded so as to eliminate value inconsistencies.
 
 Categories for the *filed_fafsa* and *enrolled_spring* variables will be
 re-coded so all are upper case.
+
+
+
+<!--# The recode() function from dplyr package will be used to  change the values of factor levels -->
+
+
+
 
 
 ```{r}
@@ -320,6 +373,11 @@ ug_v3<- ug_v2 %>%
 
 
 
+
+
+
+
+
 ```{r}
 
 
@@ -333,6 +391,11 @@ incon_var<-ug_v3 %>%
 
 
 
+
+
+
+
+
 ```{r}
 
 pander(incon_var, "Table 2:  Summary Recoded Variables ")
@@ -341,6 +404,12 @@ pander(incon_var, "Table 2:  Summary Recoded Variables ")
 ```
 
 <br/><br/>
+
+
+
+
+
+
 
 Certain variables have unnecessary categories and thus need to be
 reduced. This will be handled by collapsing smaller categories into
@@ -356,6 +425,13 @@ race.*
 <br/><br/>
 
 
+
+
+
+
+
+
+
 ```{r}
 
 
@@ -366,6 +442,12 @@ race.*
 
 
 ```
+
+
+
+
+
+
 
 
 ```{r}
@@ -389,6 +471,11 @@ ug_v3<-ug_v3 %>%
 
 
 
+
+
+
+
+
 ```{r}
 
 val_des_cnt_2<-ug_v3 %>%
@@ -407,6 +494,10 @@ pander(val_des_cnt_2, caption= "Table 3: Race  Variable Count-Recoded")
 ```
 
 
+
+
+
+
 ```{r}
 
 
@@ -417,6 +508,10 @@ deg_cde_cnt<-ug_v3 %>%
 
 
 ```
+
+
+
+
 
 
 
@@ -595,6 +690,1613 @@ for *hrs_enrolled*.
 ```{r}
 
 ug_v3 %>% select(hrs_enrolled) %>% summary()
+
+
+```
+
+
+
+
+<br/><br/>
+
+Any observation that has *hrs_enrolled* as zero will be removed.
+
+<br/><br/>
+
+
+
+
+```{r}
+
+
+
+ug_v4<-ug_v3 %>% 
+  filter(hrs_enrolled > 0)
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+ug_v4 %>% 
+  select(hrs_enrolled) %>% 
+  filter(hrs_enrolled==0)
+
+
+```
+
+
+
+## Feature Creation
+
+<br/><br/>
+
+New features will be created to enhance the analysis and modeling.
+
+<br/><br/>
+
+
+
+
+
+
+<br/><br/>
+
+*Python* will be used for the creation of certain features. In order for
+*Python* to be used on a R data frame within *the R Markdown*
+environment, the *R* data.frame must be converted to a *Pandas* data
+frame.
+
+<br/><br/>
+
+
+<!--# Since Python code is being used we will switch to Python chunks -->
+
+
+```{python}
+
+
+new_enroll_p=r.ug_v4
+
+
+```
+
+
+
+
+```{python}
+
+
+
+new_enroll_p.info()
+```
+
+
+
+
+
+
+
+<br/><br/>
+
+The feature stageDT_classStart_diff will be created from the difference
+between the date a student was accepted (hist_stage_dte) and the class
+start date. The time difference is reported in days.
+
+<br/><br/>
+
+
+
+
+
+```{python}
+
+
+
+new_enroll_p["accpt_Start_diff"]=(new_enroll_p["stage_dte"]-new_enroll_p["class_st_dte"]).dt.days
+
+
+
+
+```
+
+
+
+
+
+
+
+```{python}
+
+
+new_enroll_p["accpt_Start_diff"].head()
+
+```
+
+
+
+
+
+
+```{python}
+
+
+
+new_enroll_p["accpt_Start_diff"].describe()
+
+
+```
+
+
+
+
+
+<br/><br/>
+
+The feature *age* will be created by calculating the difference between
+the date of the term a student started and that student's date of birth.
+This new feature is the age of the student at the start of their first
+fall term of enrollment.
+
+
+
+
+
+
+```{python}
+
+
+
+new_enroll_p["age"]=(new_enroll_p["class_st_dte"]-new_enroll_p["birth_dte"])
+
+new_enroll_p["age"]=new_enroll_p["age"]/np.timedelta64(1,'Y')
+
+
+
+```
+
+
+
+
+
+
+
+```{python}
+
+
+new_enroll_p[["age"]].info()
+
+
+
+
+```
+
+
+
+
+
+
+
+```{python}
+
+
+
+new_enroll_p["age"].head()
+
+```
+
+
+
+
+
+
+
+<br/><br/>
+
+The above output shows *age* has six decimal points. The will be rounded
+up to two decimal points.
+
+<br/><br/>
+
+
+
+
+
+
+```{python}
+
+
+
+
+
+
+
+
+new_enroll_p["age"]=new_enroll_p["age"].round()
+
+
+
+```
+
+
+
+
+
+
+
+
+```{python}
+
+
+new_enroll_p["age"].head()
+
+
+
+```
+
+
+
+
+
+<br/><br/>
+
+The feature *percent of enrolled credits earned* by dividing credits
+earned by credits attempted.
+
+
+
+
+
+
+
+
+```{python}
+
+
+
+new_enroll_p["pct_enrolled_cr_earned"]=(new_enroll_p["trm_hrs_earned"]/new_enroll_p["hrs_enrolled"])
+
+
+```
+
+
+
+
+
+
+```{python}
+
+
+new_enroll_p["pct_enrolled_cr_earned"].head()
+
+
+```
+
+
+
+
+
+
+
+```{python}
+
+
+
+new_enroll_p["pct_enrolled_cr_earned"].describe()
+
+
+
+
+```
+
+
+
+
+
+
+
+
+<br/><br/>
+
+The *Pandas* data frame will be converted to a R data.frame
+
+<br/><br/>
+
+
+```{python}
+
+
+
+r.ug_v5=new_enroll_p
+
+
+
+```
+
+
+
+
+
+
+<!--# We will switch back to R chunks -->
+
+
+
+
+<br/><br/>
+
+A new categorical variable will be created from the numeric variable
+*hrs_enrolled*.
+
+<br/><br/>
+
+
+
+```{r}
+
+
+ug_v8<-ug_v8 %>% 
+  mutate(term_enrolled_sts=case_when(
+    between(hrs_enrolled, 1,5) ~ "less than half time",
+    between(hrs_enrolled, 6,8) ~ "half time",
+    between(hrs_enrolled, 9,11)~ "three quarter time",
+    TRUE ~ "full time"))
+
+
+```
+
+
+
+
+
+```{r}
+
+
+ug_v8$term_enrolled_sts<-as.factor(ug_v8$term_enrolled_sts)
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+levels(ug_v8$term_enrolled_sts)
+
+
+
+```
+
+
+
+<br/><br/>
+
+The new categorical variable term_hrs_sts should be ordinal yet the
+output of the *levels* show**"three quarter time"** is located in the
+fourth slot. Its correct slot should be 2nd behind the **"full time"**
+category. The categories will be re-leveled to remedy this.
+
+<br/><br/>
+
+
+
+
+
+
+<!--# The fct_relevel() function from the forcats package will be used change the levels  -->
+
+
+```{r}
+
+
+ug_v8<-ug_v8%>% 
+  mutate(term_enrolled_sts=fct_relevel(term_enrolled_sts,"three quarter time", after=1))
+
+
+
+```
+
+
+
+```{r}
+
+
+
+ug_v8$prog_cde<-droplevels(ug_v8$prog_cde)
+
+
+
+```
+
+
+
+
+
+
+
+<br/><br/>
+
+Year of class start variable will be created by extracting year from the
+*class_st_dte* variable.
+
+<br/><br/>
+
+
+
+
+
+
+```{r}
+
+
+ug_v8<-ug_v8 %>% 
+  mutate(year=lubridate::year(class_st_dte))
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+ug_v9<-ug_v8 %>% 
+  filter(race %in% c("Hispanics of any race", "Black or African American", "White", "Asian", "other"))
+
+
+
+```
+
+
+
+
+
+
+
+
+<br/><br/>
+
+# Exploratory Data Analysis
+
+<br/><br/>
+
+<br/><br/>
+
+
+
+
+
+
+<br/><br/>
+
+## Uni-variate Analysis
+
+<br/><br/>
+
+
+
+
+<!--# Create count data frame for loc_perc plot  -->
+
+
+
+```{r}
+
+
+
+
+loc_sub<-ug_v9 %>% 
+  count(loc_cde) %>% 
+  mutate(perc = round(n / sum(n),3))
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+loc_perc<-ggplot(loc_sub, aes(x = reorder(loc_cde, -perc), y = perc, fill=loc_cde))+ 
+  geom_bar(stat = "identity")+
+  labs(x = "Location", y = "Percent", fill = "Location")+
+  scale_y_continuous(labels=scales::percent_format())+
+  geom_text(aes(label=percent(perc),
+                y=perc + .03),
+            position=position_dodge(0.9),
+            vjust=.05)+
+  theme(axis.ticks.x=element_blank())
+
+
+
+```
+
+
+
+
+
+```{r echo=FALSE,fig.cap="Figure 3: Bar Plot All Locations (Percentage)", message=FALSE, warning=FALSE,fig.height=6, fig.width=6 }
+
+
+
+loc_perc
+
+```
+
+
+
+
+
+
+```{r}
+
+
+gender_sub<-ug_v9 %>% 
+  count(gender)
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+fig <- plot_ly(gender_sub, labels = ~gender, values = ~n, type = 'pie')
+               
+  
+  
+
+fig <- fig %>% layout(title = 'Enrollment by Gender',
+
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+
+
+```
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 4: Gender (Percentage)", fig.height=4, fig.width=4, message=FALSE, warning=FALSE}
+
+
+
+fig
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+eth_sub<-ug_v9 %>% 
+  count(race) %>% 
+  mutate(perc = n / sum(n))
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+eth_perc<-ggplot(eth_sub, aes(x = reorder(race, -perc), y = perc, fill=race))+ 
+  geom_bar(stat = "identity")+
+  labs(x = "Race", y = "Percent", fill = "race")+
+  scale_y_continuous(labels=scales::percent_format())+
+  geom_text(aes(label=percent(perc),
+                y=perc + .01),
+            position=position_dodge(0.2),
+            vjust=.05)+
+  theme(axis.ticks.x=element_blank())+
+  theme(axis.text.x=element_text(angle=70, hjust=1))
+
+
+
+```
+
+
+
+
+
+```{r echo=FALSE,fig.cap="Figure 5: Enrollment by Race", fig.height=5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+
+eth_perc
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+fafsa_sub<-ug_v9 %>% 
+  count(filed_fafsa)
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+fig2 <- plot_ly(fafsa_sub, labels = ~filed_fafsa, values = ~n, type = 'pie')
+
+fig2 <- fig2 %>% layout(title = 'FAFSA Filing Status by Percentage',
+
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 6: FAFSA Filing Status", fig.height=4, fig.width=4, message=FALSE, warning=FALSE}
+
+
+
+fig2
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+prog_desc_sub<-ug_v9 %>% 
+  count(prog_desc) %>% 
+  mutate(perc = round(n / sum(n),2))
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+prog_desc_perc_2<-ggplot(prog_desc_sub, aes(x =reorder(prog_desc), y = perc, group=1, text=paste("Program Description: ",prog_desc,"<br>Percent: ", perc)))+ 
+  geom_point(
+    stat="identity",size=3,color="orange")+
+  labs(x = "Program Description", y = "Percent")+
+  scale_y_continuous(labels=scales::percent_format())+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  coord_flip()
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 7: Degree Description by Percentage", fig.height=5, fig.width=5}
+
+
+
+
+ggplotly(prog_desc_perc_2,tooltip = "text")
+
+
+
+```
+
+
+
+<br/><br/>
+
+Cambridge College mission is to provide educational access to
+non-tradional populations. Entering Bachelor Degree students are
+overwhelmingly women at 70% (*Figure 5*). The ethnic makeup of Cambridge
+College is more diverse than traditional colleges as seen in *Figure 6*
+in which the bar plot shows that Hispanics and African Americans make up
+70% of the entering Bachelor Degree students.
+
+<br/><br/>
+
+<br/><br/>
+
+## Multivariate Data Analysis
+
+<br/><br/>
+
+
+
+```{r}
+
+
+
+corr_plot_2<-ug_v9 %>% 
+  select(enrolled_spring,hrs_enrolled, trm_gpa, xfer_hrs_earned, 
+    accpt_Start_diff,age, pct_enrolled_cr_earned) %>% 
+  ggscatmat(color="enrolled_spring", 
+            corMethod = "pearson",
+            alpha=0.2)
+
+
+
+
+
+```
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 8 Correlation Plot with Dependent Variable as Color Column", fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+
+
+
+
+corr_plot_2
+
+```
+
+
+
+
+```{r}
+
+
+
+
+prog_desc_sub_2<-ug_v9 %>% 
+  count(prog_desc, gender) %>% 
+  mutate(perc = round(n / sum(n),2))
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+prog_desc_plot<-ggplot(data = ug_v9, aes(fill=gender)) +
+  geom_count(mapping = aes(x = gender, y = prog_desc))
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+ggplotly(prog_desc_plot)
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+ug_prop_7<-ug_v9 %>%
+  select(prog_desc,gender)
+
+prop_8<-with(ug_prop_7, table(prog_desc, gender)) %>% 
+  prop.table(2)
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+prop_plot<-df_prop %>% 
+  filter(prog_desc %in% c("Multidisc Studies",
+        "Early Childhood Educ/Care","Health Care Mgmt",
+        "Mgmt Studies", "Psychology", "Human Services")) %>% 
+  ggplot(aes( x=Freq, y=prog_desc,fill=gender))+
+  geom_col()+
+  facet_wrap(~gender)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 9: Program Description by Gender", fig.height=8, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+ggplotly(prop_plot)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+<br/><br/>
+
+*Figure 8* reports the total count of enrollment by program. From it we
+find the largest enrolled programs are Mgmt Studies (24%), Human
+Services (19%), Multidisc Studies (17%), and Psychology (15%). *Figure 9
+goes into more detail by splitting* the enrollment of each program by
+gender. While women are more diversified in there program of choice it
+appears that men are predominately enrolled in Management Studies.
+Figure 10 views the top six programs by percentage and gender. Here the
+plot shows that females student enrollment is evenly spread out with
+Human Services (20%) and Mgmt Studies(18%) at the top. Male students are
+overwhelmingly enrolled in Mgmt Studies (41%) with the next closest
+program at 16%.
+
+<br/><br/>
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+gender_enroll_sts<-ug_v9 %>% 
+   count(term_enrolled_sts, gender) %>%
+  #mutate(prop=n/sum(n)) %>%
+ # group_by(term_enrolled_sts) %>%
+  plot_ly(x=~term_enrolled_sts, y=~n,color=~gender,hoverinfo="y") %>% 
+  add_bars() %>% 
+  layout(title = 'Term Enrollment Status Split by Gender', xaxis = list(title = 'Term Enrollment Status'), font=t, plot_bgcolor = "#e5ecf6",
+
+         yaxis = list(title = 'Count'), legend = list(title=list(text='Gender', barmode='group')))
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 11: Enrollment Status by Gender",fig.height=7, fig.width=6, message=FALSE, warning=FALSE}
+
+
+gender_enroll_sts
+
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+enr_sts_age_gender<-ug_v9 %>% 
+  ggplot(aes(x=term_enrolled_sts, y=age, fill=term_enrolled_sts))+
+  geom_boxplot()+
+  facet_wrap(~gender)+
+   labs(x = "Enrollment Status", y = "Age")+
+  theme(legend.position = "none")
+
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 12: Enrollment Status by Gender and Age", fig.height=7, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+enr_sts_age_gender
+
+
+
+```
+
+
+
+
+<br/><br/>
+
+*Figure 11* shows that over half of all female students were enrolled
+half-time (6-8 credits) while males were more evenly distributed with
+half-time enrollment at 40% and full-time at 33%. *Figure 12* goes
+further by adding the age feature to the equation. For both females and
+males the median age increase as enrolled credits decrease. It appears
+enrollment status is affected by age while gender does not come into
+play.
+
+<br/><br/>
+
+
+
+
+
+
+
+
+```{r}
+
+
+p_2<-ggplot(ug_v9, aes(x=age, y=gender)) + 
+  geom_jitter(position=position_jitter(0.2))+
+  ggtitle("Strip Chart Age by Gender")
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+pt_2<-p_2 + coord_flip()
+
+pa_2<-pt_2 + stat_summary(fun=median, geom="point", shape=18,
+                 size=3, color="red")
+
+pa_pt_2<-pa_2+scale_color_grey() + theme_classic()
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE,  fig.cap="Figure 14: Strip Chart-Age by Gender", message=FALSE, warning=FALSE}
+
+
+
+pa_pt_2
+
+
+```
+
+
+
+
+
+
+
+
+
+
+<br/><br/>
+
+The tear drop plot in *Figure 12* combines a box plot with a density
+plot. It displays the age via a density plot for both men and women.
+Both density plots exhibits the same distribution with both median ages
+near 30.
+
+The strip plot in *Figure 13* provides a clearer picture of the age
+distribution of each gender. The red dot represents the median age in
+which females students are near 32 and male students are around 30.
+
+<br/><br/>
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+
+gender_years<-ug_v9 %>%
+  count(year, gender) %>%
+  #mutate(perc = round(n / sum(n),2)) %>% 
+  complete(gender,year, fill=list(n=0))
+  
+
+cumulative_gender<-gender_years %>% 
+  split(f=.$year) %>% 
+  accumulate(.,~bind_rows(.x, .y)) %>% 
+  bind_rows(.id="frame")
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+gend_years_plt<-cumulative_gender %>% 
+  plot_ly(x=~year, y=~n, color=~gender) %>% 
+  add_lines(frame=~frame, ids=~gender)
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 15 Time Line-Enrollment by Gender"}
+
+
+
+
+gend_years_plt
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+gen_per<-ug_v9 %>% 
+  filter(year >2015) %>% 
+  group_by(year) %>% 
+  count(gender) %>% 
+  mutate(perc = round(n / sum(n),2)) 
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+gen_plt<-ggplot(gen_per, aes(x = reorder(gender, -perc), y = perc, fill=gender))+ 
+  geom_bar(stat = "identity")+
+  labs(x = "Gender", y = "Percent", fill = "Gender")+
+  scale_y_continuous(labels=scales::percent_format())+
+  geom_text(aes(label=percent(perc),
+                y=perc + .01),
+            position=position_dodge(0.2),
+            vjust=.05)+
+  theme(axis.ticks.x=element_blank())+
+  theme(axis.text.x=element_text(angle=70, hjust=1))+
+  facet_wrap(~year)
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 16: Percentage of Enrollment by gender(2016-2021)"}
+
+
+gen_plt
+
+
+
+
+```
+
+
+
+
+
+
+
+<br/><br/>
+
+*Plot 5* presented the enrollment by gender at 76.6% for females and
+23.4% for males. This is over an eleven year and does not reflect
+changes over time. *Plot 14* displays enrollment split by gender as a
+time line. Over the years it can be sen the gap between female and male
+enrollment has fluctuated. *Plot 15* focuses on the last six years of
+data which sees the percentage of male enrollment drop by 8%.
+
+<br/><br/>
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+race_years<-ug_v9 %>% 
+  count(year, race) %>% 
+  complete(race, year, fill=list(n=0))
+
+cumulative_race<-race_years %>% 
+  split(f=.$year) %>% 
+  accumulate(.,~bind_rows(.x, .y)) %>% 
+  bind_rows(.id="frame")
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+ethn_time_plt<-cumulative_race %>% 
+  plot_ly(x=~year, y=~n, color=~race) %>% 
+  add_lines(frame=~frame, ids=~race)
+
+
+```
+
+
+
+
+
+
+
+```{r echo=FALSE, echo=FALSE, fig.cap="Figure 17 Time Line-Enrollment by Ethnicity"}
+
+
+
+ethn_time_plt
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+eth_per<-ug_v9 %>% 
+  filter(year >2015) %>% 
+  group_by(year) %>% 
+  count(race) %>% 
+  mutate(perc = round(n / sum(n),2)) 
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+eth_plt<-ggplot(eth_per, aes(x = reorder(race, -perc), y = perc, fill=race))+ 
+  geom_bar(stat = "identity")+
+  labs(x = "Race", y = "Percent", fill = "race")+
+  scale_y_continuous(labels=scales::percent_format())+
+  geom_text(aes(label=percent(perc),
+                y=perc + .01),
+            position=position_dodge(0.1),
+            vjust=.05)+
+  theme(axis.ticks.x=element_blank())+
+  theme(axis.text.x=element_text(angle=70, hjust=1))+
+  facet_wrap(~year)
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 18: Percentage of Enrollment 2016-2021",fig.height=11, fig.width=11,  message=FALSE, warning=FALSE}
+
+
+eth_plt
+
+
+```
+
+
+
+
+
+
+<br/><br/>
+
+*Plot 5* shows Hispanics at 34.2% of enrollment and African American's
+at 32.8% being the two larges groups. *Plot 16* displays enrollment over
+a time line of eleven years. Over the eleven year period, the gap
+between groups has fluctuated. Changes over the last six years are
+presented in *Plot 17.* Enrollment of Hispanics has fallen by 12%
+between 2019 and 2021. Asian students as a percentage of enrollment have
+increased by by 18% while enrollment of white students fell by 5% during
+the same period.
+
+<br/><br/>
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+prog_desc_age<-ug_v9 %>% 
+  group_by(prog_desc) %>% 
+  summarize(median_age=median(age)) %>% 
+ungroup() %>% 
+  arrange(desc(median_age))
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+prog_age_set<-prog_desc_age %>%
+  arrange(desc(median_age)) %>% 
+  mutate(name=factor(prog_desc, levels=prog_desc)) 
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+prog_age_plot<-ggplot(prog_age_set, aes(x=prog_desc, y=median_age,group=1, text=paste("Program Description: ",prog_desc,"<br>Median Age: ", median_age))) +
+    geom_segment( aes(xend=prog_desc, yend=0)) +
+    geom_point( size=4, color="blue") +
+    coord_flip() +
+    theme_bw() +
+    ylab("Median Age")+
+  xlab("Program")
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 19 Median Age by Program"}
+
+
+
+
+
+ggplotly(prog_age_plot,tooltip = "text")
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+theme_set(theme_tufte())
+
+
+g_bx <- ggplot(ug_v9, aes(gender, hrs_enrolled))+
+   geom_tufteboxplot() + 
+      theme(axis.text.x = element_text(angle=65, vjust=0.6)) + 
+      labs(title="Boxplot", 
+           subtitle="Credit Hours Enrolled by Gender",
+           caption="Figure 14 ",
+           x="Gender",
+           y="Credit Hours Enrolled")
+
+
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 20 Box Plot Credit Hours Enrolled by Gender"}
+
+
+
+g_bx
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+trns_cred_box<-ug_v9 %>% 
+  #
+  filter(xfer_hrs_earned <100) %>% 
+  plot_ly(x=~gender, y=~xfer_hrs_earned) %>% 
+  add_boxplot() %>% 
+  layout(title = 'Transfer Credits by Gender', xaxis = list(title = 'Gender'), font=t, plot_bgcolor = "#e5ecf6",
+
+         yaxis = list(title = 'Transfer Credits'), legend = list(title=list(text='Gender')))
+
+
+
+```
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 21 Box Plot Transfer Credits by Gender"}
+
+
+trns_cred_box
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+
+
 
 
 ```
