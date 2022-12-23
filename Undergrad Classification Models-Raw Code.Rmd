@@ -2950,11 +2950,755 @@ Trees](https://www.analyticsvidhya.com/blog/2021/08/decision-tree-algorithm/)
 ```{r}
 
 
+library(rpart)
+
+
+
+```
+
+
+
+
+
+<!--#  Set the specifications for the decision tree model  -->
+
+
+
+
+
+
+
+```{r}
+
+
+doParallel::registerDoParallel()
+
+tree_spec_untuned <- decision_tree(
+  min_n=tune(),
+tree_depth=tune(),
+cost_complexity = tune()) %>% 
+      set_engine('rpart') %>% 
+      set_mode('classification')
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+tree_grid<-grid_regular(extract_parameter_set_dials(tree_spec_untuned),levels=3)
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+tree_tune_results<-tune_grid(
+  tree_spec_untuned, 
+  enrolled_spring~., 
+  resamples=ug_folds
+  #metrics=metric_set(accuracy, roc_auc)
+)
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+final_tree_params<-select_best(tree_tune_results, "roc_auc")
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+final_tree_params
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+ree_params_table<-ggtexttable(final_tree_params, rows = NULL, 
+                        theme = ttheme("mBlue", base_size=11)) %>% 
+   tab_add_title("Final Decision Tree Parameters",face="bold") 
 
 
 
 
 ```
+
+
+
+
+
+
+
+```{r}
+
+
+
+ tree_params_table
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+tree_spec<-finalize_model(tree_spec_untuned, final_tree_params)
+
+
+
+```
+
+
+
+
+
+<br/><br/>
+
+<!--#   The two previous steps will be combines using workflows. A workflow combines the pre-processing recipe and model specification.   -->
+
+<!--#    By creating a workflow, all of the pre-processing will be handled during the fitting of the model and when generating new predictions. Workflows are equivalent to Python's Scikit Learn's pipeline.  -->
+
+
+
+
+
+
+```{r}
+
+
+
+
+tree_wf<-workflow() %>% 
+  add_model(tree_spec) %>% 
+  add_recipe(new_rec)
+
+
+
+
+```
+
+
+
+
+<!--#  Fit decision tree model to cross validation folds  -->
+
+
+
+
+
+
+```{r}
+
+
+
+doParallel::registerDoParallel()
+
+tree_rs<-tree_wf %>% 
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity, f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+
+
+```
+
+
+
+
+
+
+### Random Forest
+
+Random Forest models are made up of individual decision trees whose
+predictions are combined for a final result. The final result is decided
+using majority rules which means that the final prediction is what the
+majority of the decision tree models chose. Random Forests can be made
+up of thousands of decision trees.
+
+Simply put, the random forest builds multiple decision trees and merges
+them together to get a more accurate prediction.
+
+[Random Forest for
+Beginners](https://www.analyticsvidhya.com/blog/2021/10/an-introduction-to-random-forest-algorithm-for-beginners/)
+
+<!--#   Set the specifications for the random forest model  -->
+
+
+
+
+
+
+
+```{r}
+
+library(randomForest)
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+rf_spec_untuned <- rand_forest(
+ # mtry=tune(),
+  trees=tune(),
+  min_n=tune()) %>% 
+      set_engine('randomForest') %>% 
+      set_mode('classification')
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+rf_grid<-grid_regular(extract_parameter_set_dials(rf_spec_untuned),levels=3)
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+doParallel::registerDoParallel()
+
+rf_tune_results<-tune_grid(
+  rf_spec_untuned, 
+  enrolled_spring~., 
+  resamples=ug_folds
+  #metrics=metric_set(accuracy, roc_auc)
+)
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+final_rf_params<-select_best(rf_tune_results, "roc_auc")
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+final_rf_params
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+rf_params_table<-ggtexttable(final_rf_params, rows = NULL, 
+                        theme = ttheme("mGreen", base_size=11)) %>% 
+   tab_add_title("Final Random Forest Parameters",face="bold")
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+rf_params_table
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+rf_spec<-finalize_model(rf_spec_untuned, final_rf_params)
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+rf_wf<-workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(new_rec)
+
+
+
+```
+
+
+
+
+
+<!--#  Fit the models to the re-sampled folds.  -->
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+doParallel::registerDoParallel()
+
+rf_rs<-rf_wf %>% 
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity, f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+
+```
+
+
+
+
+
+
+
+### Logistic Regression
+
+<br/><br/>
+
+Logistic Regression is a binary classification model that finds the
+probability or odds ratio of an event. For this model there are two
+events or possible outcomes, yes or no. A probability between 0 and 1 of
+an observation belonging to one of the two categories is produced.
+
+If you would like to know more about Logistic Regression check out the
+link below.
+
+[Logistic Regression for
+Beginners](https://www.analyticsvidhya.com/blog/2021/08/conceptual-understanding-of-logistic-regression-for-data-science-beginners/)
+
+<!--#  Set the specifications for the logistic regression model  -->
+
+
+
+
+
+
+```{r}
+
+
+
+
+log_reg_spec<- logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+logreg_wf<-workflow() %>% 
+  add_model(log_reg_spec) %>% 
+  add_recipe(new_rec)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+doParallel::registerDoParallel()
+
+log_rs<-logreg_wf %>% 
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity, f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+
+
+```
+
+
+
+
+### KNN
+
+<br/><br/>
+
+Nearest neighbor methods work by taking the value of an observation's
+attribute (known also as features or variables) and then locating
+another observation whose attribute value is numerically nearest to it.
+
+More on the Nearest Neighbor algorithm can be found at the following
+link.
+
+[Introduction to KNN
+Algorithms](https://www.analyticsvidhya.com/blog/2022/01/introduction-to-knn-algorithms/)
+
+
+
+
+
+
+```{r}
+
+
+
+knn_spec<-nearest_neighbor() %>% 
+  set_engine("kknn") %>% 
+  set_mode("classification")
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+knn_wf<-workflow() %>% 
+  add_model(knn_spec) %>% 
+  add_recipe(new_rec)
+
+
+```
+
+
+
+
+```{r}
+
+doParallel::registerDoParallel()
+
+knn_rs<-knn_wf %>% 
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity,f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+
+```
+
+
+
+
+
+
+
+### XGBoost
+
+Gradient boosting ,just as random forest, is mad up of many individual
+decision trees. The difference is instead of using the majority vote of
+the combined decision trees it adjusts a decision tree model based on
+the incorrect predictions from the decision tree before. New trees are
+fit based entirely on the errors from the previous tree's predictions.
+That is to say predictions that are accurate are not included in the fit
+of new trees. New trees are added sequentially until no further
+improvements can be made.
+
+More information of the Xgboost algorithm can be found at the below
+link.
+
+[Guide to
+XGBoost](https://www.analyticsvidhya.com/blog/2018/09/an-end-to-end-guide-to-understand-the-math-behind-xgboost/)
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+xgb_spec<-boost_tree(trees=2000, mtry=5) %>% 
+  set_mode("classification") %>% 
+  set_engine("xgboost")
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+xgb_wf<-workflow() %>% 
+  add_model(xgb_spec) %>% 
+  add_recipe(new_rec)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+library(xgboost)
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+doParallel::registerDoParallel()
+
+xgb_rs<-xgb_wf %>%
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity,f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+
+
+
+```
+
+
+
+
+
+
+## Model Performance-Training Set
+
+<br/><br/>
+
+### Definitions
+
+For this data set the positive class is "N" for enrolled_spring. This is
+the event of interest for prediction. The negative category is "Y" for
+did not enroll spring.
+
+<br/><br/>
+
+
+
+
+
+
+
+**Terms**
+
+To evaluate model performance on predicting the True Positive class
+("N") multiple plots and metrics will be used.
+
+**TP** - True Positive. The model predicted positive and it's true.
+
+**TN** - True Negative. The model predicted negative and it's true.
+
+**FP** - False Positive. The model predicted positive and it's false.
+
+**FN** - False Negative. The model predicted negative and it's false.
+
+**ROC** - Probability curve that plots the TPR against FPR at various
+threshold values.
+
+**Accuracy** - Proportion of true results among the total number of
+cases.
+
+**Sensitivity** - Proportion of positive classes that are correctly
+classified. Also known as *Total Positive Rate(TPR)* and *Recall.*
+
+**Specificity** - Proportion of actual negatives that are correctly
+classified.
+
+**FPR** - Fall Positive Rate. Proportion of negative classes that are
+incorrectly classified.
+
+<br/><br/>
+
+
+
+
 
 
 
@@ -2967,4 +3711,6 @@ Trees](https://www.analyticsvidhya.com/blog/2021/08/decision-tree-algorithm/)
 
 
 ```
+
+
 
