@@ -3059,7 +3059,7 @@ final_tree_params
 
 
 
-ree_params_table<-ggtexttable(final_tree_params, rows = NULL, 
+tree_params_table<-ggtexttable(final_tree_params, rows = NULL, 
                         theme = ttheme("mBlue", base_size=11)) %>% 
    tab_add_title("Final Decision Tree Parameters",face="bold") 
 
@@ -3446,7 +3446,7 @@ logreg_wf<-workflow() %>%
 
 
 
-
+<!--#  Fit Logistic Regression model to re-sampled  folds  -->
 
 
 ```{r}
@@ -3544,7 +3544,7 @@ knn_rs<-knn_wf %>%
 
 ### XGBoost
 
-Gradient boosting ,just as random forest, is mad up of many individual
+Gradient boosting ,just as random forest, is made up of many individual
 decision trees. The difference is instead of using the majority vote of
 the combined decision trees it adjusts a decision tree model based on
 the incorrect predictions from the decision tree before. New trees are
@@ -3558,6 +3558,10 @@ link.
 
 [Guide to
 XGBoost](https://www.analyticsvidhya.com/blog/2018/09/an-end-to-end-guide-to-understand-the-math-behind-xgboost/)
+
+
+
+
 
 
 
@@ -3703,7 +3707,426 @@ incorrectly classified.
 
 
 
+
+
+<!--#  Metrics will be collect for all models.  Individual metrics will be viewed as a visualization or in table form.   -->
+
+
+
+
 ```{r}
+
+
+levels(ug_v10[["enrolled_spring"]])
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+log_metrics <- log_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "Logistic Regression") # add the name of the model to every row
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+rf_metrics <- rf_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "Random Forest")
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+tree_metrics <- tree_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "Decision Tree")
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+knn_metrics <-  knn_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "KNN")
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+xgb_metrics <-  xgb_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "Xgbbost")
+
+
+
+
+
+```
+
+
+
+
+
+### Area Under the Curve Score
+
+
+
+
+
+
+<!--#  Metrics will be combined  using bind_rows.   -->
+
+
+
+```{r}
+
+
+
+
+model_compare <- bind_rows(
+                          log_metrics,
+                           rf_metrics,
+                           tree_metrics,
+                            knn_metrics,
+                          xgb_metrics
+                          
+                          
+                           ) 
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+model_comp <-  model_compare %>% 
+  select(model, .metric, mean, std_err) %>% 
+  pivot_wider(names_from = .metric, values_from = c(mean, std_err)) 
+
+
+
+```
+
+
+
+
+
+
+
+
+<!--#  show mean area under the curve (auc) per model  -->
+
+
+
+```{r}
+
+
+
+
+
+
+
+
+train_mod_plot<-model_comp %>% 
+  arrange(mean_roc_auc) %>% 
+  mutate(model = fct_reorder(model, mean_roc_auc)) %>%
+  ggplot(aes(model, mean_roc_auc, fill=model)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_brewer(palette = "Blues") + 
+     geom_text(
+     size = 3,
+     aes(label = round(mean_roc_auc, 3), y = mean_roc_auc + 0.08),
+     vjust = 1
+  )
+
+
+
+
+```
+
+
+
+
+<br/><br/>
+
+
+
+**Models Ranked-Area Under the Curve**
+
+
+
+
+```{r}
+
+
+
+
+train_mod_plot
+
+
+
+```
+
+
+<br/><br/>
+
+
+
+
+
+
+
+*Figure 22* displays the trained models ranked by the Area Under the
+Curve (AUC) score. AUC is the of the ability of a classifier to
+distinguish between classes. The higher the AUC the better the
+performance of the model at distinguishing between the positive and
+negative classes.
+
+An AUC score of 1 means the classifier is able to perfectly distinguish
+between all the Positive and Negative classes.
+
+If the AUC is 0, then the classifier would predict all classes
+incorrectly.
+
+When the AUC= 0.5 the the classifier is no better than predicting
+classes by guessing randomly (flip of a coin).
+
+The AUC is essentially a summery of a ROC curve which will be displayed
+in *Figure 23*.
+
+From *Figure 22* we can see that the Random Forest model has the highest
+AUC score of .83. Following closely are the Logistic Regression and
+XGboost model's with 0.81 and 0.80 AUC scores respectively. The AUC
+score in *Figure 22* is the average of the AUC scores for the five folds
+the models were trained on. Though these AUC scores for the three top
+models a good (roughly a grade a B), remember we are interested how are
+they at predicting the event of interest (did not attend spring) . To
+gauge this effectiveness more metrics will need to be observed in orfder
+to answer this question.
+
+<br/><br/>
+
+The next evaluation method is a ROC curve. Before reviewing the ROC
+curves of each of our models we'll review what a ROC curve is and how to
+understand it.
+
+A ROC curve is the display of sensitivity(TPR) and FPR (1-Specificity)
+for different cut-off values for probability.
+
+In the *ROC Curve Example* below, the red dashed line indicates the
+points where TPR and FPR are equal at any point on the line. This
+suggests that the probability of correctly classified Positives is the
+same as the probability of incorrectly classified Negatives which is
+only as good as a ransom classifier (AUC score of 0.50).
+
+<br/><br/>
+
+![ROC CURVE
+Example](C:%5CUsers%5Cfvlau%5COneDrive%5CDocuments%5CCambridge%20First%20Year%5Cimages%5CROC_exampl_3.png)
+
+<br/><br/>
+
+If the probability of positive response is above the red dashed line
+(chance), the prediction is a positive outcome and is a good model. If
+the probability of positive response is below the red line then the
+prediction is a negative one and the model would be considered bad.
+
+<br/><br/>
+
+An optimal model would have sensitivity as 1.0 and FPR as 0. This means
+the model is able to perfectly distinguish between positive and negative
+classes. This can be visualized again with the *ROC Curve Example.* The
+the blue dot in the upper left corner of the ROC Curve has a TPR of 1.0
+and a FPR of 0.0. This translates into the model prediction having no
+false positives and all true positives.
+
+<br/><br/>
+
+Optimal models are a rarity. What usually occurs is a
+model that has different thresh-holds of TPR and FPR along its ROC
+curve. Basically a threshold is checking what x-axis and y-axis values
+are at a specific point along a diagonal line. Moving up or down along
+this diagonal line will usually increase one axis while decreasing another
+axis. This is how we will judge how  well a model predicts the event of
+interest. Going to the *ROC Curve* example once more,  we see three curves
+of different colors which represent different models. We'd like to see a
+models ROC curve bend or shoulder occur as close to the upper left
+corner as possible. The blue ROC curve bends at a TPR of 0.88 and a FPR
+of 0.12 meaning the model predicts true positives 88% of the time while
+only predicting false positives 12% of the time. This model could be
+considered very good. The model represented by the green line has a
+shoulder occurring roughly around a TPR of 0.72 and a FPR of 0.28. This
+model could be considered above average. The third model represented by
+a orange ROC curve barely has a shoulder around a TPR of 0.58 and a FPR
+of 0.2. This model is not much better than average in distinguishing
+between true positives and false positives. As seen in Example 2, the
+blue ROC curve has a shoulder closest to the upper left corner and thus
+is the better model. Different points further to the right along each of
+the ROC curves brings a higher TPR along with a higher FPR.
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+tree_roc<-tree_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+rf_roc<-rf_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+log_roc<-log_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+
 
 
 
@@ -3713,4 +4136,2106 @@ incorrectly classified.
 ```
 
 
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+knn_roc<-knn_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+boost_roc<-xgb_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+library(ggpubr)
+
+theme_set(theme_pubr())
+
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+roc_curve<-ggarrange(log_roc,rf_roc,tree_roc,boost_roc,tree_roc,
+                  labels=c("Log Reg", "RF",
+                  "Tree", "XGBoost",
+                  "KNN"),ncol=2, nrow=3)
+
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 23 ROC Curve- All Models",fig.height=8, fig.width=8}
+
+
+roc_curve
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+<br/><br/>
+
+Figure 26 includes the ROC curves of the five folds for each model.
+Viewing the five folds will help understand how the AUC score was
+determined. For the Random Forest model, two of the five folds have
+shoulders that are close together around a TPR range of 0.76 to 0.85 and
+a FPR of 0.20. The shoulders for the other three fold's occurs around a
+TPR of 0.70 and FPR of 0.30. The Logistic Regression model's ROC curve
+has two folds shoulders near a TPR of 0.80 and a FPR of 0.20 while the
+other three folds have a TPR range between 0.60 and 0.70 . All models
+appear to have ROC curves indicating very good to good at low false
+positives. Individual metrics will be analyzed to seek additional
+insights.
+
+
+
+
+
+
+
+### Heatmap
+
+
+<!--#  Create heatmaps for each  model  -->
+
+
+
+
+
+```{r}
+
+
+
+
+
+log_htmap<-log_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+rf_htmap<-rf_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+tree_htmap<-tree_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+boost_htmap<-xgb_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+knn_htmap<-knn_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+htmap_all<-ggarrange(log_htmap,rf_htmap,tree_htmap,boost_htmap,knn_htmap,
+                  labels=c("Log_reg", "RF",
+                  "Tree", "XGBoost",
+                  "Knn"),ncol=2, nrow=3)
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 24: Heatmap-All Models",fig.height=14, fig.width=8}
+
+
+
+
+
+htmap_all
+
+
+
+
+
+```
+
+
+
+
+
+### Metrics
+
+
+
+
+
+<!--#  Transform model_compare into data frame  -->
+
+
+
+
+
+```{r}
+
+
+model_compare_df<-as.data.frame(model_compare)
+
+
+
+
+```
+
+
+
+
+
+
+
+<!--#  Extract accuracy metric from  data frame  -->
+
+
+```{r}
+
+
+
+
+
+model_comp_accuracy<-model_compare_df %>% 
+  select(-n, -.estimator, -std_err,-.config) %>% 
+  filter(.metric=="accuracy") %>% 
+  arrange(desc(mean))
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+accuracy_table <- ggtexttable(model_comp_accuracy, rows = NULL, 
+                        theme = ttheme("mBlue", base_size=14)) %>% 
+
+  tab_add_title("Accuracy Scores-Trained Data",face="bold", size=10) %>% 
+  tab_add_footnote("Table 12", size=9)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+accuracy_table
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+<br/><br/>
+
+<br/><br/>
+
+*Table 12* contains the accuracy score for all models. The accuracy
+score is calculated by dividing the total of true predictions ( N and Y
+were predicted accurately) by the total number of cases. Accuracy is not
+always the best metric for determining a models performance. A models
+accuracy score can be inflated by it being overwhelming good at
+predicting one class while on the other hand being only average at
+predicting the other class. We'll use the XGboost models as an example.
+Based on *Table 12* the XGBoost model has the accuracy score of .79,
+second only to the .80 score of the Random Forest model. *Figure 27*
+includes confusion matrix's as heat maps for all models. From it we can
+we can gather all true predictions. True predictions are viewed in the
+right diagonal in which TP is located at the upper left quadrant and TN
+is located at the lower right quadrant. XGboost's TP is the lowest of
+all models. From this we can discern that the XGBoost model is very good
+at predicting the negative class and not as good at predicting the
+positive class.
+
+<br/><br/>
+
+
+
+
+
+
+<!--#  Extract sensitivity metric from  data frame  -->
+
+
+
+
+
+
+
+```{r}
+
+
+
+model_comp_sensitivity<-model_compare_df %>% 
+  select(-n, -.estimator, -std_err,-.config) %>% 
+  filter(.metric=="sensitivity") %>% 
+  arrange(desc(mean))
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+sensitivity_table <- ggtexttable(model_comp_sensitivity, rows = NULL, 
+                        theme = ttheme("mOrange", base_size=14)) %>% 
+   tab_add_title("Sensitivity Scores-Trained Data",face="bold", size=10) %>% 
+  tab_add_footnote("Table 13", size=9)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+sensitivity_table
+
+
+```
+
+
+
+
+
+<br/><br/>
+
+*Table 13* exhibits the sensitivity scores for all models.
+
+<br/><br/>
+
+
+
+
+
+
+
+<!--#  Extract specificity metric from  data frame  -->
+
+
+
+
+
+
+```{r}
+
+
+model_comp_specificity<-model_compare_df %>% 
+  select(-n, -.estimator, -std_err,-.config) %>% 
+  filter(.metric=="specificity") %>% 
+  arrange(desc(mean))
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+specificity_table <- ggtexttable(model_comp_specificity, rows = NULL, 
+                        theme = ttheme("mGreen", base_size=14)) %>% 
+   tab_add_title("Specificity Scores-Trained Data",face="bold", size=10) %>% 
+  tab_add_footnote("Table 14",size=9)
+
+
+
+
+```
+
+
+
+
+<br/><br/>
+
+*Table 13* and *Table 14* provide a clearer picture of how the models
+performed on the predicting the positive class (did not enroll for
+spring term)
+
+*Table 13* provides us with the sensitivity score for all models. This
+score gives us an idea about when the positive class is yes and how
+often does it predict yes. The formula is TP/(TP+FN). The logistic
+regression model has the highest score of 0.65. This means for the
+logistic regression model just over 4 out of every 10 students in realty
+are miss-labeled as enrolling for the spring term and just under 7 are
+correctly labeled as not enrolling for the spring, The next closest
+models are the Random Forest and decision tree both with a score of .60. The
+XGboost model predicts the positive class no better than 50-50.
+
+*Figure 14* gives us the specificity score of all the models. This score
+tells us when the negative class is predicted correctly (Students
+enrolled for the spring. From this figure it appears all models good at
+predicting the negative class. The Random Forest and Xgboost models have
+scores of 0.88 and 0.87 placing them at very good at predicting the
+negative class. This means that just over 1 out of every 10 students in
+reality are miss-labeled as not enrolling for the spring term and just
+under 9 correctly labeled as enrolling for the spring term. XGboost's
+high specificity score low sensitivity score supports our observation
+about the inflation of its accuracy score.
+
+<br/><br/>
+
+<br/><br/>
+
+## Model Performance-Test Set (unseen data)
+
+<br/><br/>
+
+Models will now be evaluated on how well they perform on the test set.
+It's important to determine how well a model performs on unseen data as
+it is an indicator on well it performs on outside data. We will observe
+whether a model is over fit or under fit. Over fitting is when a model's
+performance is higher on the training set than on the test set. This
+could mean that the model is fit closely with the specifics of the
+training set yet can not replicate this performance on the test set.
+This might occur due to to many features. Under fitting is when a models
+performance is lower on the training set than on the test set. This
+could mean more features are required for the fitting of the model.
+
+<br/><br/>
+
+
+
+
+```{r}
+
+
+
+specificity_table
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+<br/><br/>
+
+*Table 13* and *Table 14* provide a clearer picture of how the models
+performed on the predicting the positive class (did not enroll for
+spring term)
+
+*Table 13* provides us with the sensitivity score for all models. This
+score gives us an idea about when the positive class is yes and how
+often does it predict yes. The formula is TP/(TP+FN). The logistic
+regression model has the highest score of 0.65. This means for the
+logistic regression model just over 4 out of every 10 students in realty
+are miss-labeled as enrolling for the spring term and just under 7 are
+correctly labeled as not enrolling for the spring, The next closest
+models are the Random Forest and decision tree with a score of .60. The
+XGboost he model predicts the positive class no better than 50-50.
+
+*Figure 14* gives us the specificity score of all the models. This score
+tells us when the negative class is predicted correctly (Students
+enrolled for the spring. From this figure it appears all models good at
+predicting the negative class. The Random Forest and Xgboost models have
+scores of 0.88 and 0.87 placing them at very good at predicting the
+negative class. This means that just over 1 out of every 10 students in
+reality are miss-labeled as not enrolling for the spring term and just
+under 9 correctly labeled as enrolling for the spring term. XGboost's
+high specificity score low sensitivity score supports our observation
+about the inflation of its accuracy score.
+
+<br/><br/>
+
+<br/><br/>
+
+## Model Performance-Test Set (unseen data)
+
+<br/><br/>
+
+Models will now be evaluated on how well they perform on the test set.
+It's important to determine how well a model performs on unseen data as
+it is an indicator on how well it performs on outside data. We will observe
+whether a model is over fit or under fit. Over fitting is when a model's
+performance is higher on the training set than on the test set. This
+could mean that the model is fit closely with the specifics of the
+training set yet can not replicate this performance on the test set.
+This might occur possibly due too many features. Under fitting is when a model's
+performance is lower on the training set than on the test set. This
+could mean more features are required for the fitting of the model.
+
+<br/><br/>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--#  The last_fit function from tidy models will pull the test data from the new_ug_splt data frame.  -->
+
+
+
+
+<!--#  The function collect_metrics will  pull the metrics for the test set (last fit)  -->
+
+
+```{r}
+
+
+
+ug_final_log<-logreg_wf %>% 
+  last_fit(new_ug_split)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+final_metrics_logreg<-collect_metrics(ug_final_log)
+
+final_metrics_logreg<-final_metrics_logreg %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+model<-"log_reg"
+
+final_metrics_logreg$model<-model
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+ug_final_tree<-tree_wf %>% 
+  last_fit(new_ug_split)
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+final_metrics_dectree<-collect_metrics(ug_final_tree)
+
+
+final_metrics_dectree<-final_metrics_dectree %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+model<-"decision tree"
+
+final_metrics_dectree$model<-model
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+ug_final_rf<-rf_wf %>% 
+  last_fit(new_ug_split)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+final_metrics_rf<-collect_metrics(ug_final_rf)
+
+
+
+final_metrics_rf<-final_metrics_rf %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+model<-"random forest"
+
+final_metrics_rf$model<-model
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+ug_final_xgb<-xgb_wf %>% 
+  last_fit(new_ug_split)
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+final_metrics_xgb<-collect_metrics(ug_final_xgb)
+
+
+final_metrics_xgb<-final_metrics_xgb %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+model<-"xgboost"
+
+
+final_metrics_xgb$model<-model
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+ug_final_knn<-knn_wf %>% 
+  last_fit(new_ug_split)
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+final_metrics_knn<-collect_metrics(ug_final_knn)
+
+
+final_metrics_knn<-final_metrics_knn %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+model<-"knn"
+
+final_metrics_knn$model<-model
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+test_metrics_combined<-rbind(final_metrics_logreg,
+           final_metrics_rf, final_metrics_dectree,
+           final_metrics_xgb, final_metrics_knn)
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+test_comb_rocauc<-test_metrics_combined %>%   select(model, roc_auc) %>% 
+  arrange(desc(roc_auc))
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+
+
+
+test_rocauc_table <- ggtexttable(test_comb_rocauc, rows = NULL, 
+                        theme = ttheme("mViolet", base_size=14)) %>% 
+   tab_add_title("Roc Auc Scores-Test Data",face="bold", size=9) %>% 
+  tab_add_footnote("Table 15", size=9)
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+test_rocauc_table
+
+
+
+
+```
+
+
+
+### Accuracy
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+test_comb_accuracy<-test_metrics_combined %>%   select(model, accuracy) %>% 
+  arrange(desc(accuracy))
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+test_accuracy_table <- ggtexttable(test_comb_accuracy, rows = NULL, 
+                        theme = ttheme("mCyan", base_size=14)) %>% 
+   tab_add_title("Accuracy Scores-Test Data",face="bold", size=9) %>% 
+  tab_add_footnote("Table 15", size=9)
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+test_accuracy_table
+
+
+
+
+
+
+
+### Heat Map
+
+<br/><br/>
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+log_final_htmap<-ug_final_log %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+log_final_htmap
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+rf_final_htmap<-ug_final_rf %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+rf_final_htmap
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+xgb_final_htmap<-ug_final_xgb %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+xgb_final_htmap
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+
+tree_final_htmap<-ug_final_tree %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+tree_final_htmap
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+knn_final_htmap<-ug_final_knn %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+knn_final_htmap
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+htmap_test_all<-ggarrange(log_final_htmap,rf_final_htmap,tree_final_htmap,xgb_final_htmap,knn_final_htmap,
+                  labels=c("Log_reg", "RF",
+                  "Tree", "XGBoost",
+                  "Knn"),ncol=2, nrow=3)
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+htmap_test_all
+
+
+
+
+
+```
+
+
+
+
+
+<br/><br/>
+
+Table 15 presents the AUC scores for the models from the test set. The
+Logistic Regression model has the highest score at 0.84 followed closely
+by the Random Forest model at 0.82. These scores a very close to those
+from the training set thus we can conclude that both models fit well to
+unseen data. The other three models have slightly lower scores than the
+training set though still fit well to unseen data.
+
+<br/><br/>
+
+The accuracy scores from *Table 15* are close to those from the training
+set with the exception of the logistic regression model which increased
+by 4%. Logistic Regression was also the only model to improve on its
+sensitivity score. Using data from the confusion matrix in *Figure 25*
+we divide true positives by true positives plus false positives.
+
+82/(82+32)=0.719
+
+The sensitivity score of 0.72 for the test set is just over a four
+percent increase from the training set score. This can be interpreted as
+7 out of 10 students are correctly predicted as not enrolling for spring
+and 3 out of 10 are incorrectly predicted as not enrolling for spring.
+
+<br/><br/>
+
+
+
+
+
+## Feature Analysis
+
+<br/><br/>
+
+Each model has features that carry more importance in the final
+predictions than other features. Each model will be analyzed to find
+which features had the most sway when determining the final prediction.
+
+<br/><br/>
+
+
+
+
+
+
+
+### Logistic Regression
+
+<br/><br/>
+
+For Logistic Regression we want to find the significant features
+(coefficients). The p-value is the method used by logistics regression
+to determine significant features. Significance can be defined as the
+outcome features that is not random or by chance. The universal base
+line p-value used is 0.05 though this can vary depending on field and
+subject. Features with a p-value equal to or less than 0.05 are
+considered significant. For our model we can check *Figure 26* to find
+which features are significant. Those features colored in blue (not
+crossing the horizontal line) are considered significant.
+
+<br/><br/>
+
+Now that we know which features are significant, how each effects the
+event prediction (outcome) will be reviewed next.
+
+
+
+
+
+
+
+
+```{r}
+
+
+options(scipen=999)
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+<!--#  The pull()function will extract the coefficients from the final logistic regression model.  -->
+
+
+
+
+```{r}
+
+
+
+
+
+final_log_feat<-ug_final_log %>% 
+  pull(.workflow) %>% 
+  pluck(1) %>% 
+  tidy(exponentiate=TRUE) %>% 
+  arrange(estimate) 
+
+final_log_feat$p.value<-round(final_log_feat$p.value, 3)
+
+final_log_feat$estimate<-round(final_log_feat$estimate, 3)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+<!--#  Use ifelse statement to divide coefficients into significant or insignificant.   -->
+
+
+
+```{r}
+
+
+
+final_fit<-final_log_feat %>% 
+  mutate(Significance=ifelse(p.value <.051, "Significant", 
+                             "Insignificant")) %>% 
+  arrange(desc(p.value))
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+log_fit_plot<-final_fit %>% 
+  ggplot(aes(x=term, y=p.value, fill=Significance))+
+  geom_col()+
+  theme(axis.text.x=element_text(
+    face="bold", color="#0070BA",
+    size=6, angle=90
+  ))+
+  scale_y_continuous(limits=c(.00,1.0))+
+  labs(y="P value", x="Terms",
+       title="p value significance chart",
+       subtitle="A chart to represent the sigificant variables in the model")+
+  geom_hline(yintercept = .05)
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 26"}
+
+
+
+log_fit_plot
+
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+log_table<-final_log_feat %>% 
+  select(term, estimate, std.error, p.value) %>% 
+  filter(p.value <0.051)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+log_reg_feat_table<- ggtexttable(log_table, rows = NULL, 
+                        theme = ttheme("mRed", base_size=12)) %>% 
+   tab_add_title("Logistic Regression Features",face="bold", size=9) %>% 
+  tab_add_footnote("Table 17", size=6)
+
+"Table 19: Logistic Regression Significant Features"
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+log_reg_feat_table
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+<br/><br/>
+
+*Table 17* gives us the output of the Logistic Regression model. For the
+purpose of evaluation we will be using the term, estimate, and p.value
+columns. The estimate is how much the term affects the event prediction.
+It's output is in the form of odds ratio. Odds ratios that are greater
+than 1 indicate that the event of a student returning for the spring
+term is more likely to occur. Odds ratios that are less than 1 indicate
+that the event of a student returning for the spring is less likely to
+occur. For easier interpretation the estimate will also be given as a
+percent.
+
+<br/><br/>
+
+-   less.than.half.time-Students enrolled as less than half time are 90%
+    less likely to return for the spring term than students enrolled as
+    full time keeping other variables constant.
+
+-   half time-Students enrolled as half time are 56% less likely to
+    return for the spring term than students enrolled as full time
+    keeping other variables constant.
+
+-   race.African.American-African American students are 52% less likely
+    to return for the spring term than students who are Asian keeping
+    other variables constant.
+
+-   gender_M-Males students are 35% less likely to return than female
+    students keeping other variables constant.
+
+-   xfer_hrs_earned-For every one credit increase in transfer hours
+    earned the odds of students returning for the spring term increase
+    by 30% keeping other variables constant.
+
+-   pct_enrolled_cr_earned-For every one percent increase in earned
+    enrolled credits the odds of students returning for the spring
+    increase by 39%
+
+-   filed_fafsa_Y-Students who file a FAFSA are 76% more likely to
+    return for the spring term than students who do not file a FAFSA
+    keeping other variables constant.
+
+-   trm_gpa-For every one unit increase in GPA the odds of students
+    returning for the spring term increase by 166%.
+
+<br/><br/>
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+library(vip)
+
+
+
+
+
+
+
+```
+
+
+
+
+<br/><br/>
+
+<br/><br/>
+
+<br/><br/>
+
+
+
+
+
+<!--#  VIP function will pull important features for tree based models.    -->
+
+
+
+
+```{r}
+
+
+
+tree_features<-ug_final_tree %>% 
+  pluck(".workflow", 1) %>%   
+  extract_fit_parsnip() %>% 
+  vip(geom="col", aesthetics=list(fill="midnightblue", alpha = 0.8))+
+  scale_y_continuous(expand=c(0,0))
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 27: Feature Importance-Decision Tree",fig.height=9, fig.width=8}
+
+
+
+
+tree_features
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+feature_importance_rf<-ug_final_rf %>% 
+  pluck(".workflow", 1) %>%   
+  extract_fit_parsnip() %>% 
+  vip(geom="col", aesthetics=list(fill="#d75237", alpha = 0.8))+
+  scale_y_continuous(expand=c(0,0))
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 28: Feature Importance-Random Forest",fig.height=9, fig.width=6}
+
+
+
+
+
+feature_importance_rf
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+feature_imortance_xgb<-ug_final_xgb %>% 
+  pluck(".workflow", 1) %>%   
+  extract_fit_parsnip() %>% 
+  vip(geom="col", aesthetics=list(fill="#419f52", alpha = 0.8))+
+  scale_y_continuous(expand=c(0,0))
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r echo=FALSE,  fig.cap="Figure 29: Feature Importance-Xgboost",fig.height=9, fig.width=6}
+
+
+
+
+
+
+feature_imortance_xgb
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+<br/><br/>
+
+### Tree Based Models
+
+<br/><br/>
+
+The evaluation of important features is different for tree based models
+compared to a logistic regression model. In the case of tree based
+models, feature importance does not indicate if the effects on the
+event prediction is positive or negative only that the feature had a
+strong effect on the prediction.
+
+The Decision Tree model has trm gpa and pct_enrolled_credits_earned as
+the most important features.
+
+For the Random Forest model the most important features, trm_gpa and
+pct_enrolled_cr_earned, are the same as the Decision Tree model though
+with less impact.
+
+The XGBoost model has trm_gpa and pct_enrolled_cr_earned, the same as
+the first two models and in addition, also has the xfer_hrs_earned, age, and
+accpt_Start_diff as impact-full features. Unlike The Decision Tree and
+Random Forest models, XGBoost has more features that impact the event
+prediction though not as dominating.
+
+<br/><br/>
+
+
+
+
+
+
+# Conclusion
+
+<br/><br/>
+
+<br/><br/>
+
+
+
+
+
+Based on the model performance evaluation we can conclude that the
+logistic regression model had the  best performance. Best though does not necessarily
+mean it is a good model. Remember that the event of interest was if a
+student did not return for the spring term. Yes, the Logistic Regression
+model was by far the best at predicting the event of interest, yet it was
+only 70% accurate in predicting a student not returning. Improving model
+performance may require more data and finding more features that can be
+used in the fitting of the model.
+
+
+
+<br/><br/>
+
+
+
+Still,  the models did provide insights on the first time undergraduate
+population. Between the significant features from the logistic
+regression model, the tree based feature importance, and the data
+visualizations,  there's enough data to develop an action plan that focuses
+on at risk students.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+```
 
