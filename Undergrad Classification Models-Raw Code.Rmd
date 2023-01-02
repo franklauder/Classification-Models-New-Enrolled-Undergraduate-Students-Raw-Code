@@ -78,7 +78,7 @@ library(RColorBrewer)
 library(ggpubr)
 ```
 
-
+test 123 
 
 Import Python Libraries
 
@@ -152,7 +152,7 @@ and rows are the observations.
 ```{r}
 
 
-dim(ug_v1)v
+dim(ug_v1)
 
 
 ```
@@ -178,7 +178,7 @@ rows.
 
 
 
-```{r}
+```{r include=FALSE}
 
 
 class_str<-vis_dat(ug_v1)
@@ -187,6 +187,19 @@ class_str<-vis_dat(ug_v1)
 
 
 
+
+
+
+
+```{r echo=FALSE, fig.cap="Figure 1: Variable Structure Plot", fig.height=8, fig.width=11, message=FALSE, warning=FALSE}
+
+
+class_str
+
+
+
+
+```
 
 
 
