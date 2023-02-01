@@ -3557,6 +3557,361 @@ knn_rs<-knn_wf %>%
 
 
 
+
+
+
+
+
+### Regularization Logistics Regression
+
+
+
+
+Regularized logistic regression uses regularization (penalization) to
+estimate the model parameters. Regularization penalizes high valued
+regression coefficients. This reduces or shrinks the coefficients
+towards zero and simplifies the model. This reduces the variance (spread
+of all data points) in the model. As input features are changed. the
+model's prediction changes less than it would have without
+regularization. Essentially regularization helps avoid over fitting.
+
+There are two types of penalization that this model uses:
+
+Lasso-penalties can shrink the model terms so much that they are
+absolute zero (i.e. their effect is entirely removed from the model).
+
+ridge regression- uses a different type of penalty that is most useful
+for highly correlated predictors.
+
+<br/><br/>
+
+ We will be using the glmnet model to implement regularization.  
+ 
+ 
+
+```{r}
+
+rlr_spec_untuned <- logistic_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet")
+
+
+
+```
+
+
+```{r}
+
+rlr_grid <- data.frame(mixture = seq(0, 1, 0.1),
+                       penalty = 1)
+
+
+```
+
+
+
+
+
+
+```{r}
+
+rlr_grid<-grid_regular(extract_parameter_set_dials(rlr_spec_untuned),levels=100)
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+
+doParallel::registerDoParallel()
+
+rlr_tune_results<-tune_grid(
+  rlr_spec_untuned, 
+  enrolled_spring~., 
+  resamples=ug_folds
+  #metrics=metric_set(accuracy, roc_auc)
+)
+
+
+
+```
+
+
+
+```{r}
+
+
+
+final_rlr_params<-select_best(rlr_tune_results, "roc_auc")
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+rlr_params_table<-ggtexttable(final_rlr_params, rows = NULL, 
+                        theme = ttheme("mOrange", base_size=11)) %>% 
+   tab_add_title("Final RLR Parameters",face="bold") 
+
+
+```
+
+
+
+
+```{r}
+
+
+
+rlr_params_table
+
+
+
+```
+
+
+
+<br/><br/>
+
+The params have a penalty that is 76% lasso and 24% weight decay.  The total amount of these penalties is .0003
+
+<br/><br/>
+
+
+
+
+
+```{r}
+
+
+
+
+rlr_spec<-finalize_model(rlr_spec_untuned, final_rlr_params)
+
+
+```
+
+
+
+
+```{r}
+
+
+rlr_wf<-workflow() %>% 
+  add_model(rlr_spec) %>% 
+  add_recipe(new_rec)
+
+
+
+```
+
+
+
+
+```{r}
+
+
+doParallel::registerDoParallel()
+
+rlr_rs<-rlr_wf %>% 
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity, f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+
+```
+
+
+
+
+
+### Support Vector Machines
+
+<br/><br/>
+
+Support Vector Machine (the "road machine") is responsible for finding
+the decision boundary to separate different classes and maximize the
+margin.
+
+![](images/svm.webp)
+
+
+
+
+<br/><br/>
+
+Margins are the (perpendicular) distances between the line and those dots
+closest to the line.
+
+<br/><br/>
+
+A more detailed explanation can be found at the link below.
+
+[Support Vector Machines: A Simple
+Explanation](https://www.kdnuggets.com/2016/07/support-vector-machines-simple-explanation.html)
+
+
+
+
+
+```{r}
+
+
+library(kernlab)
+
+
+
+
+```
+
+
+
+```{r}
+
+
+
+svm_spec_untuned <-
+  svm_rbf(cost = tune(), rbf_sigma = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab")
+
+
+```
+
+
+
+```{r}
+
+
+svn_grid<-grid_regular(extract_parameter_set_dials(svm_spec_untuned),levels=3)
+
+
+
+```
+
+
+
+```{r}
+
+
+
+
+doParallel::registerDoParallel()
+
+svm_tune_results<-tune_grid(
+  svm_spec_untuned, 
+  enrolled_spring~., 
+  resamples=ug_folds
+  #metrics=metric_set(accuracy, roc_auc)
+)
+
+
+
+
+
+```
+
+
+
+```{r}
+
+
+final_svm_params<-select_best(svm_tune_results, "roc_auc")
+
+
+
+
+```
+
+
+
+```{r}
+
+
+svm_params_table<-ggtexttable(final_svm_params, rows = NULL, 
+                        theme = ttheme("mRed", base_size=11)) %>% 
+   tab_add_title("Final RLR Parameters",face="bold") 
+
+
+
+```
+
+
+```{r}
+
+
+
+svm_params_table
+
+
+
+```
+
+
+
+
+```{r}
+
+
+svm_spec<-finalize_model(svm_spec_untuned, final_svm_params)
+
+
+
+```
+
+
+
+```{r}
+
+
+
+svm_wf<-workflow() %>% 
+  add_model(svm_spec) %>% 
+  add_recipe(new_rec)
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+doParallel::registerDoParallel()
+
+svm_rs<-svm_wf %>% 
+  fit_resamples(
+    resamples=ug_folds,
+    metrics=metric_set(roc_auc, accuracy, sensitivity, specificity, f_meas, precision),
+    control=control_resamples(save_pred = TRUE)
+  )
+
+
+```
+
+
+
+
+
 ### XGBoost
 
 Gradient boosting ,just as random forest, is made up of many individual
@@ -3577,10 +3932,26 @@ XGBoost](https://www.analyticsvidhya.com/blog/2018/09/an-end-to-end-guide-to-und
 
 
 
+```{r}
 
 
 
 
+
+boost_spec_untuned<-boost_tree(
+  trees=tune(),
+   #mtry=tune(),
+  min_n=tune(),
+  learn_rate=tune(),
+  tree_depth = tune()
+  ) %>% 
+  set_mode("classification") %>% 
+  set_engine("xgboost")
+
+
+
+
+```
 
 
 
@@ -3591,12 +3962,100 @@ XGBoost](https://www.analyticsvidhya.com/blog/2018/09/an-end-to-end-guide-to-und
 
 
 
+boost_params<-
+  parameters(
+    trees(),
+    #mtry(),
+    min_n(),
+    learn_rate(),
+    tree_depth()
+  )
 
 
-xgb_spec<-boost_tree(trees=2000, mtry=5) %>% 
-  set_mode("classification") %>% 
-  set_engine("xgboost")
+```
 
+
+
+```{r}
+
+
+
+boost_grid<-
+  grid_max_entropy(
+    boost_params,
+    size=60
+  )
+
+
+```
+
+
+
+```{r}
+
+
+
+doParallel::registerDoParallel()
+
+boost_tune_results<-tune_grid(
+  boost_spec_untuned, 
+  enrolled_spring~., 
+  resamples=ug_folds
+  #metrics=metric_set(accuracy, roc_auc)
+)
+
+
+
+```
+
+
+
+```{r}
+
+
+
+final_boost_params<-select_best(boost_tune_results, "roc_auc")
+
+
+
+
+```
+
+
+
+```{r}
+
+
+
+
+
+
+boost_params_table<-ggtexttable(final_boost_params, rows = NULL, 
+                        theme = ttheme("mBlue", base_size=11)) %>% 
+   tab_add_title("Final RLR Parameters",face="bold")
+
+
+```
+
+
+
+
+
+```{r}
+
+
+boost_params_table
+
+
+
+```
+
+
+
+```{r}
+
+
+xgb_spec<-finalize_model(boost_spec_untuned, final_boost_params)
 
 
 
@@ -3761,8 +4220,33 @@ log_metrics <- log_rs %>%
 
 
 
+```{r}
 
 
+
+rlr_metrics <- rlr_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "Regularized Logistic Regression") # add the name of the model to every row
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+svm_metrics <- svm_rs %>% 
+  collect_metrics(summarise = TRUE) %>%
+  mutate(model = "SVM") # add the name of the model to every row
+
+
+
+```
 
 
 
@@ -3871,6 +4355,8 @@ xgb_metrics <-  xgb_rs %>%
 
 model_compare <- bind_rows(
                           log_metrics,
+                          rlr_metrics,
+                          svm_metrics,
                            rf_metrics,
                            tree_metrics,
                             knn_metrics,
@@ -4154,8 +4640,46 @@ log_roc<-log_rs %>%
 
 
 
+```{r}
 
 
+
+
+rlr_roc<-rlr_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+svm_roc<-svm_rs %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(enrolled_spring, .pred_N) %>% 
+  ggplot(aes(1-specificity, sensitivity, color=id))+
+  geom_abline(lty=2, color="gray80", size=1.5)+
+  geom_path(show.legend=FALSE, alpha=0.6, size=1.2)+
+  coord_equal()
+
+
+
+
+```
 
 
 
@@ -4245,10 +4769,8 @@ theme_set(theme_pubr())
 
 
 
-roc_curve<-ggarrange(log_roc,rf_roc,tree_roc,boost_roc,tree_roc,
-                  labels=c("Log Reg", "RF",
-                  "Tree", "XGBoost",
-                  "KNN"),ncol=2, nrow=3)
+roc_curve<-ggarrange(rf_roc, boost_roc, svm_roc,rlr_roc,log_roc,tree_roc,knn_roc,
+                  labels=c("RF","XGBoost","SVM","RLR","Log Reg","Tree","KNN"),ncol=2, nrow=4)
 
 
 ```
@@ -4322,7 +4844,37 @@ log_htmap<-log_rs %>%
 ```
 
 
+```{r}
 
+
+
+
+
+
+rlr_htmap<-rlr_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+```
+
+```{r}
+
+
+
+svm_htmap<-svm_rs %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+
+```
 
 
 
@@ -4426,10 +4978,9 @@ knn_htmap<-knn_rs %>%
 
 
 
-htmap_all<-ggarrange(log_htmap,rf_htmap,tree_htmap,boost_htmap,knn_htmap,
-                  labels=c("Log_reg", "RF",
-                  "Tree", "XGBoost",
-                  "Knn"),ncol=2, nrow=3)
+htmap_all<-ggarrange(rf_htmap, boost_htmap,svm_htmap,rlr_htmap,log_htmap,tree_htmap,knn_htmap,
+                  labels=c("RF","XGBoost","SVM","RLR","Log_reg",
+                  "Tree",  "Knn"),ncol=2, nrow=4)
 
 
 
@@ -4789,29 +5340,32 @@ specificity_table
 <br/><br/>
 
 *Table 13* and *Table 14* provide a clearer picture of how the models
-performed on the predicting the positive class (did not enroll for
-spring term)
+performed on predicting the positive class (did not enroll for spring
+term)
 
 *Table 13* provides us with the sensitivity score for all models. This
 score gives us an idea about when the positive class is yes and how
-often does it predict yes. The formula is TP/(TP+FN). The logistic
-regression model has the highest score of 0.65. This means for the
-logistic regression model just over 4 out of every 10 students in realty
-are miss-labeled as enrolling for the spring term and just under 7 are
-correctly labeled as not enrolling for the spring, The next closest
-models are the Random Forest and decision tree with a score of .60. The
-XGboost he model predicts the positive class no better than 50-50.
+often does it predict yes. The formula is TP/(TP+FN). The reguarlization
+logistic regression model has the highest score of 0.66. This means for
+the logistic regression model just over 4 out of every 10 students in
+realty are miss-labeled as enrolling for the spring term and just under
+7 are correctly labeled as not enrolling for the spring, The next
+closest model is the basic logistic regression model with a score of
+.65.
 
 *Figure 14* gives us the specificity score of all the models. This score
 tells us when the negative class is predicted correctly (Students
-enrolled for the spring. From this figure it appears all models good at
-predicting the negative class. The Random Forest and Xgboost models have
-scores of 0.88 and 0.87 placing them at very good at predicting the
-negative class. This means that just over 1 out of every 10 students in
-reality are miss-labeled as not enrolling for the spring term and just
-under 9 correctly labeled as enrolling for the spring term. XGboost's
-high specificity score low sensitivity score supports our observation
-about the inflation of its accuracy score.
+enrolled for the spring. From this figure it appears all models are good
+at predicting the negative class. The SVM and Random Forest models have
+scores of 0.93 and 0.91 placing them at very good at predicting the
+negative class. This means that just 1 out of every 10 students in
+reality are miss-labeled as not enrolling for the spring term and 9 are
+correctly labeled as enrolling for the spring term.
+
+<br/><br/>
+
+<br/><br/>
+
 
 <br/><br/>
 
@@ -4823,17 +5377,23 @@ about the inflation of its accuracy score.
 
 Models will now be evaluated on how well they perform on the test set.
 It's important to determine how well a model performs on unseen data as
-it is an indicator on how well it performs on outside data. We will observe
-whether a model is over fit or under fit. Over fitting is when a model's
-performance is higher on the training set than on the test set. This
-could mean that the model is fit closely with the specifics of the
-training set yet can not replicate this performance on the test set.
-This might occur possibly due too many features. Under fitting is when a model's
-performance is lower on the training set than on the test set. This
-could mean more features are required for the fitting of the model.
+it is an indicator on how well it performs on outside data. We will
+observe whether a model is over fit or under fit.
 
 <br/><br/>
 
+Over fit results in a model's failure to generalize. Sometimes we might
+find that we've trained a model on some set of data, and it appears to
+work well on that data, yet when we test it on some new set of data the
+performance suffers. One reason this may occur is hhe model too closely
+conforms to the training set and therfore misses the more generalizable
+trends.
+
+<br/><br/>
+
+Underfitting refers to a model that can neither model the training data
+nor generalize to new data. Underfitting can be avoided by using more
+data and also reducing the features by feature selection.
 
 
 
@@ -4920,10 +5480,103 @@ final_metrics_logreg$model<-model
 
 
 
+```{r}
 
 
 
 
+ug_final_rlr<-rlr_wf %>% 
+  last_fit(new_ug_split)
+
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+
+final_metrics_rlr<-collect_metrics(ug_final_rlr)
+
+final_metrics_rlr<-final_metrics_rlr %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+model<-"RLR"
+
+final_metrics_rlr$model<-model
+
+
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+ug_final_svm<-svm_wf %>% 
+  last_fit(new_ug_split)
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+final_metrics_svm<-collect_metrics(ug_final_svm)
+
+final_metrics_svm<-final_metrics_svm %>% 
+  select(.metric, .estimate) %>% 
+   pivot_wider(names_from = .metric, values_from = c(.estimate)) 
+
+
+
+
+
+```
+
+
+
+
+```{r}
+
+
+model<-"SVM"
+
+final_metrics_svm$model<-model
+
+
+
+```
 
 
 
@@ -5210,6 +5863,7 @@ final_metrics_knn$model<-model
 
 
 test_metrics_combined<-rbind(final_metrics_logreg,
+           final_metrics_rlr, final_metrics_svm,
            final_metrics_rf, final_metrics_dectree,
            final_metrics_xgb, final_metrics_knn)
 
@@ -5230,7 +5884,9 @@ test_metrics_combined<-rbind(final_metrics_logreg,
 
 
 
-test_comb_rocauc<-test_metrics_combined %>%   select(model, roc_auc) %>% 
+test_comb_rocauc<-test_metrics_combined %>% 
+  select(model, roc_auc) %>% 
+  mutate(roc_auc=round(roc_auc,2)) %>% 
   arrange(desc(roc_auc))
 
 
@@ -5300,7 +5956,9 @@ test_rocauc_table
 
 
 
-test_comb_accuracy<-test_metrics_combined %>%   select(model, accuracy) %>% 
+test_comb_accuracy<-test_metrics_combined %>%   
+  select(model, accuracy) %>% 
+  mutate(accuracy=round(accuracy,2)) %>% 
   arrange(desc(accuracy))
 
 
@@ -5345,6 +6003,114 @@ test_accuracy_table
 
 
 
+
+
+
+```{r}
+
+
+model_test_sensitivity<-test_metrics_data %>% 
+  select(Sensitivity )%>% 
+  mutate(Sensitivity=round(Sensitivity, 2)) %>% 
+  arrange(desc(Sensitivity))
+
+
+
+
+```
+
+
+
+
+```{r}
+
+sensitivity_test_table <- ggtexttable(model_test_sensitivity, 
+                        theme = ttheme("mOrange", base_size=14)) %>% 
+   tab_add_title("Sensitivity Scores-Test Data",face="bold", size=13) %>% 
+  tab_add_footnote("Table 17", size=9)
+
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+model_test_precision<-test_metrics_data %>% 
+  select(Precision) %>% 
+  mutate(Precision=round(Precision,2)) %>% 
+  arrange(desc(Precision))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+precision_test_table <- ggtexttable(model_test_precision, 
+                        theme = ttheme("mBlue", base_size=14)) %>% 
+   tab_add_title("Precision Scores-Test Data",face="bold", size=13) %>% 
+  tab_add_footnote("Table 13", size=9)
+
+
+
+```
+
+
+
+
+```{r}
+
+precision_test_table
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+
+
+specificity_test_table <- ggtexttable(model_test_specitivity, 
+                        theme = ttheme("mGreen", base_size=14)) %>% 
+   tab_add_title("Specificity Scores-Test Data",face="bold", size=13) %>% 
+  tab_add_footnote("Table 18", size=9)
+
+
+
+
+```
+
+
+
+```{r}
+
+
+specificity_test_table
+
+
+
+```
 
 
 
@@ -5404,6 +6170,35 @@ log_final_htmap
 
 ```
 
+
+```{r}
+
+
+rlr_final_htmap<-ug_final_rlr %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+svm_final_htmap<-ug_final_svm %>% 
+  unnest(.predictions) %>% 
+  conf_mat(enrolled_spring, .pred_class) %>% 
+  autoplot(type="heatmap")
+
+
+
+```
 
 
 
@@ -5618,10 +6413,9 @@ knn_final_htmap
 
 
 
-htmap_test_all<-ggarrange(log_final_htmap,rf_final_htmap,tree_final_htmap,xgb_final_htmap,knn_final_htmap,
-                  labels=c("Log_reg", "RF",
-                  "Tree", "XGBoost",
-                  "Knn"),ncol=2, nrow=3)
+htmap_test_all<-ggarrange(log_final_htmap,rlr_final_htmap,  svm_final_htmap,xgb_final_htmap,rf_final_htmap,tree_final_htmap,knn_final_htmap,
+                  labels=c("Log_reg", "RLR","SVM","XGBoost","RF",
+                  "Tree",  "Knn"),ncol=2, nrow=4)
 
 
 
@@ -5659,11 +6453,11 @@ htmap_test_all
 <br/><br/>
 
 Table 15 presents the AUC scores for the models from the test set. The
-Logistic Regression model has the highest score at 0.84 followed closely
-by the Random Forest model at 0.82. These scores a very close to those
-from the training set thus we can conclude that both models fit well to
-unseen data. The other three models have slightly lower scores than the
-training set though still fit well to unseen data.
+logistic regression and regularizion logistic regression models have the highest score at 0.84 followed closely
+by the SVM, XGboost, and Random Forest models.  These scores are very close to those
+from the training set with the difference being the  logistic and regularization models moving to the top. With these results we can conclude that both models fit well to
+unseen data. The other two models have slightly lower scores than the
+training set.
 
 <br/><br/>
 
@@ -6015,12 +6809,134 @@ library(vip)
 
 
 
-
+### Regularized Logistic Regression
 
 <!--#  VIP function will pull important features for tree based models.    -->
 
 
 
+
+
+```{r}
+
+
+
+final_reg_feat<-ug_final_rlr %>% 
+  pull(.workflow) %>% 
+  pluck(1) %>% 
+  tidy(exponentiate=TRUE) %>% 
+  arrange(estimate) 
+
+#final_reg_feat$p.value<-round(final_reg_feat$p.value, 3)
+
+#final_reg_feat$estimate<-round(final_reg_feat$estimate, 3)
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+reg_table<-final_reg_feat %>% 
+  select(term, estimate) %>% 
+  mutate(estimate=round(estimate,2))
+
+
+
+```
+
+
+
+```{r}
+
+
+reg_feat_table<- ggtexttable(reg_table, rows = NULL, 
+                        theme = ttheme("mBlue", base_size=8)) %>% 
+   tab_add_title("Regularization Logistic Regression Features",face="bold", size=9) %>% 
+  tab_add_footnote("Table 20", size=7)
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+reg_feat_table
+
+
+```
+
+
+
+```{r}
+
+
+reg_log_features<-ug_final_rlr %>% 
+  pluck(".workflow", 1) %>%   
+  extract_fit_parsnip() %>% 
+  vip(geom="col", aesthetics=list(fill="midnightblue", alpha = 0.8))+
+  scale_y_continuous(expand=c(0,0))+
+  ggtitle("Regularized Logistic Regression Feature Importance")
+  #theme(plot.title = element_text(color="blue", size=14, face="bold.italic", hjust=0.5))
+
+
+
+```
+
+
+
+```{r}
+
+
+reg_log_features
+
+
+
+```
+
+
+
+
+<br/><br/>
+
+*Table 18* presents the term estimates for the Regularization logistic
+regression model. Compared to the term estimates of the logistic
+regression model from *Table 17* we can see the effects of penalization.
+The terms race_White, age, enrolled_three.quarter.time, and degr_cde_BS
+were reduced to zero thus having no affect on the model. Positive Term
+estimates were marginally reduced between 5% and 75 for xfer_hrs_earned,
+pct_enrolled_cr_earned. Filed_fafsa term estimate decreased by 27%. The
+greatest decrease for a positive term estimate which decreased by half
+(83%). The negative term estimates gender_M and race_African.American
+decreased in influence by 29% and 6% respectively. Two negative term
+estimates increased model influence. enrolled_half.time increased by 23%
+and enrollled_less.than.half.time increases by 13%.
+
+The regularized results show us how terms for the the model were
+selected by either setting them to zero or reducing them closer to zero.
+This is in contrast to the basic logistic regression model which uses
+p-value to determine significant terms.
+
+*Figure 27* plots the regularized term estimates as absolute values.
+From this we can conclude enrolled.less.than.half.time has the greatest
+affect on the model. The next two closest terms are trm_gpa and
+enrolled.half.time at more than half the value.
+
+<br/><br/>
+
+
+### Tree Based Models
 
 ```{r}
 
@@ -6167,28 +7083,33 @@ feature_imortance_xgb
 
 <br/><br/>
 
-### Tree Based Models
+
+
+<br/><br/>
+
+
 
 <br/><br/>
 
 The evaluation of important features is different for tree based models
 compared to a logistic regression model. In the case of tree based
-models, feature importance does not indicate if the effects on the
-event prediction is positive or negative only that the feature had a
-strong effect on the prediction.
+models, feature importance does not indicate if the effects on the event
+prediction is positive or negative only that the feature had a strong
+effect on the prediction.
 
-The Decision Tree model has trm gpa and pct_enrolled_credits_earned as
-the most important features.
+The features trm gpa and pct_enrolled_credits_earned have the greatest
+importance for the decision tree model on predicting spring enrollment.
 
 For the Random Forest model the most important features, trm_gpa and
 pct_enrolled_cr_earned, are the same as the Decision Tree model though
-with less impact.
+the impact is not as large. Moreover, xfer_hrs_earned feature is not far
+behind in importance.
 
-The XGBoost model has trm_gpa and pct_enrolled_cr_earned, the same as
-the first two models and in addition, also has the xfer_hrs_earned, age, and
-accpt_Start_diff as impact-full features. Unlike The Decision Tree and
-Random Forest models, XGBoost has more features that impact the event
-prediction though not as dominating.
+The XGBoost model has one feature, trm_gpa, that is dominate in
+importance on predicting spring enrollment.
+
+Overall, all three three models have term_gpa as one of the most
+important features.
 
 <br/><br/>
 
@@ -6206,51 +7127,44 @@ prediction though not as dominating.
 
 
 
-
-Based on the model performance evaluation we can conclude that the
-logistic regression model had the  best performance. Best though does not necessarily
-mean it is a good model. Remember that the event of interest was if a
-student did not return for the spring term. Yes, the Logistic Regression
-model was by far the best at predicting the event of interest, yet it was
-only 70% accurate in predicting a student not returning. Improving model
-performance may require more data and finding more features that can be
-used in the fitting of the model.
-
-
+<br/><br/>
 
 <br/><br/>
 
+Based on the performance evaluation the logistic regression,
+regularization logistic regression, SVM, xgBoost, and random forest
+models all had scores that are considered good. Yet the good scores do
+not necessarily mean that these models are useful for the purpose of our
+analysis. Remember that the event of interest was if a student did not
+return for the spring term. Yes, both the logistic regression and
+regularization logistic regression models performed the best at
+predicting the event of interest, each was only 70% accurate at
+predicting a student not returning. Improving model performance may
+require more data and finding more features for use in the fitting of
+the model.
 
+<br/><br/>
 
-Still,  the models did provide insights on the first time undergraduate
-population. Between the significant features from the logistic
-regression model, the tree based feature importance, and the data
-visualizations,  there's enough data to develop an action plan that focuses
-on at risk students.
+Actionable Insights
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-
-
-
-
-
+The models did provide insights on the first time undergraduate
+population. The significant and important features gathered from each
+model provides us with enough data to develop action plans focusing on
+at risk students. Some recommendations are having instructors and
+academic advisers work closely on monitoring at risk students at check
+points during the term. Personal meetings with financial planning
+advisers must be scheduled within the first week of a students
+acceptance.
 
 
 
 
 
-```
 
+
+
+
+
+
+
+`
